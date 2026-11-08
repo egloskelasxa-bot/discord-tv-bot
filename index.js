@@ -9,14 +9,13 @@ const {
 } = require('discord.js-selfbot-v13');
 const channelsData = require('./channels.js');
 
-// PERBAIKAN UTAMA: Tambahkan checkUpdate: false agar aman untuk Selfbot v13 (Bebas error INVALID_INTENTS)
+// PENTING: Wajib pakai { checkUpdate: false } agar selfbot tidak memicu error INVALID_INTENTS
 const client = new Client({
     checkUpdate: false
 });
 
 const activeSessions = new Map();
 
-// Global Error Handler agar bot tidak gampang crash di cloud
 process.on('unhandledRejection', error => {
     console.error('Unhandled rejection:', error);
 });
@@ -36,7 +35,6 @@ const getAllChannels = () => {
     ];
 };
 
-// Fungsi UI Remote Control Interaktif
 function createRemotePayload(session) {
     const { channel, quality, isAutoRotate, startTime } = session;
     const allChannels = getAllChannels();
@@ -82,7 +80,6 @@ function createRemotePayload(session) {
     return { embeds: [embed], components: [rowSelect, row1, row2] };
 }
 
-// Fungsi inti untuk memutar video dengan Streamer instance per session
 async function playStream(guildId, channelObj, qualitySetting) {
     const session = activeSessions.get(guildId);
     if (!session) return;
@@ -93,7 +90,6 @@ async function playStream(guildId, channelObj, qualitySetting) {
         const fpsVal = qualitySetting.includes('60') ? 60 : 30;
         const bitrateVal = qualitySetting.includes('1080') ? 4500 : 2500;
 
-        // Atur ulang opsi stream video
         session.streamer.options = {
             fps: fpsVal,
             bitrate: bitrateVal,
@@ -113,27 +109,7 @@ async function playStream(guildId, channelObj, qualitySetting) {
     }
 }
 
-// Interval Auto-Rotate channel setiap 20 menit khusus mode AFK
-setInterval(() => {
-    for (const [guildId, session] of activeSessions.entries()) {
-        if (session.isAutoRotate) {
-            const allCh = getAllChannels();
-            let currentIndex = allCh.findIndex(c => c.id === session.channel.id);
-            currentIndex = (currentIndex + 1) % allCh.length;
-            const nextCh = allCh[currentIndex];
-
-            playStream(guildId, nextCh, session.quality);
-            
-            if (session.remoteMessage) {
-                session.remoteMessage.edit(createRemotePayload(session)).catch(() => {});
-            }
-        }
-    }
-}, 20 * 60 * 1000);
-
-// Event Handler Command Pesan
 client.on('messageCreate', async (message) => {
-    // Selfbot merespons pesan dari akun sendiri (atau siapapun sesuai kebutuhan)
     if (message.author.id !== client.user.id || !message.content.startsWith('!')) return;
 
     const args = message.content.slice(1).trim().split(/ +/);
@@ -142,10 +118,9 @@ client.on('messageCreate', async (message) => {
     if (command === 'tv-on' || command === 'tv') {
         const voiceChannel = message.member?.voice.channel;
         if (!voiceChannel) {
-            return message.reply('❌ Anda harus masuk ke dalam **Voice Channel** terlebih dahulu untuk menemani sesi AFK!');
+            return message.reply('❌ Anda harus masuk ke dalam **Voice Channel** terlebih dahulu!');
         }
 
-        // Jika sudah ada sesi aktif di server ini, bersihkan dulu
         if (activeSessions.has(message.guild.id)) {
             const oldSession = activeSessions.get(message.guild.id);
             try { await oldSession.streamer.stop(); } catch (e) {}
@@ -159,7 +134,6 @@ client.on('messageCreate', async (message) => {
         try {
             await message.reply('📺 Membuka siaran TV untuk ruang AFK...');
 
-            // Inisialisasi Streamer baru untuk sesi ini
             const streamerInstance = new Streamer(client);
             await streamerInstance.joinVoice(voiceChannel.guildId, voiceChannel.id);
 
@@ -183,9 +157,7 @@ client.on('messageCreate', async (message) => {
 
             collector.on('collect', async (interaction) => {
                 const session = activeSessions.get(interaction.guild.id);
-                if (!session) {
-                    return interaction.reply({ content: '❌ Sesi TV sudah berakhir.', ephemeral: true });
-                }
+                if (!session) return interaction.reply({ content: '❌ Sesi TV sudah berakhir.', ephemeral: true });
 
                 const allCh = getAllChannels();
 
@@ -246,10 +218,9 @@ client.on('messageCreate', async (message) => {
 
         } catch (error) {
             console.error(error);
-            message.channel.send('❌ Gagal menyalakan TV AFK. Pastikan token valid dan FFmpeg aktif.');
+            message.channel.send('❌ Gagal menyalakan TV AFK.');
         }
     }
 });
 
-// Login menggunakan token dari Environment Variables Railway
 client.login(process.env.DISCORD_TOKEN);
