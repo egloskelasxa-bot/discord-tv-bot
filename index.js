@@ -16,6 +16,7 @@ const client = new Client({
 
 const activeSessions = new Map();
 
+// Global Error Handler agar bot tidak gampang crash
 process.on('unhandledRejection', error => {
     console.error('Unhandled rejection:', error);
 });
@@ -35,6 +36,7 @@ const getAllChannels = () => {
     ];
 };
 
+// Fungsi UI Remote Control Interaktif
 function createRemotePayload(session) {
     const { channel, quality, isAutoRotate, startTime } = session;
     const allChannels = getAllChannels();
@@ -80,6 +82,7 @@ function createRemotePayload(session) {
     return { embeds: [embed], components: [rowSelect, row1, row2] };
 }
 
+// Fungsi inti untuk memutar video
 async function playStream(guildId, channelObj, qualitySetting) {
     const session = activeSessions.get(guildId);
     if (!session) return;
@@ -109,6 +112,25 @@ async function playStream(guildId, channelObj, qualitySetting) {
     }
 }
 
+// Interval Auto-Rotate channel setiap 20 menit khusus mode AFK
+setInterval(() => {
+    for (const [guildId, session] of activeSessions.entries()) {
+        if (session.isAutoRotate) {
+            const allCh = getAllChannels();
+            let currentIndex = allCh.findIndex(c => c.id === session.channel.id);
+            currentIndex = (currentIndex + 1) % allCh.length;
+            const nextCh = allCh[currentIndex];
+
+            playStream(guildId, nextCh, session.quality);
+            
+            if (session.remoteMessage) {
+                session.remoteMessage.edit(createRemotePayload(session)).catch(() => {});
+            }
+        }
+    }
+}, 20 * 60 * 1000);
+
+// Event Handler Command Pesan
 client.on('messageCreate', async (message) => {
     if (message.author.id !== client.user.id || !message.content.startsWith('!')) return;
 
@@ -118,7 +140,7 @@ client.on('messageCreate', async (message) => {
     if (command === 'tv-on' || command === 'tv') {
         const voiceChannel = message.member?.voice.channel;
         if (!voiceChannel) {
-            return message.reply('❌ Anda harus masuk ke dalam **Voice Channel** terlebih dahulu!');
+            return message.reply('❌ Anda harus masuk ke dalam **Voice Channel** terlebih dahulu untuk menemani sesi AFK!');
         }
 
         if (activeSessions.has(message.guild.id)) {
@@ -157,7 +179,9 @@ client.on('messageCreate', async (message) => {
 
             collector.on('collect', async (interaction) => {
                 const session = activeSessions.get(interaction.guild.id);
-                if (!session) return interaction.reply({ content: '❌ Sesi TV sudah berakhir.', ephemeral: true });
+                if (!session) {
+                    return interaction.reply({ content: '❌ Sesi TV sudah berakhir.', ephemeral: true });
+                }
 
                 const allCh = getAllChannels();
 
@@ -218,7 +242,7 @@ client.on('messageCreate', async (message) => {
 
         } catch (error) {
             console.error(error);
-            message.channel.send('❌ Gagal menyalakan TV AFK.');
+            message.channel.send('❌ Gagal menyalakan TV AFK. Pastikan token valid dan FFmpeg aktif.');
         }
     }
 });
