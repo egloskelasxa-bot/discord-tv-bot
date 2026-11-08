@@ -13,7 +13,7 @@ const client = new Client();
 const streamer = new Streamer(client);
 const activeSessions = new Map();
 
-// Global Error Handler agar Termux tidak crash saat stream terputus
+// Global Error Handler agar bot tidak gampang crash
 process.on('unhandledRejection', error => {
     console.error('Unhandled rejection:', error);
 });
@@ -26,7 +26,11 @@ client.once('ready', () => {
 });
 
 const getAllChannels = () => {
-    return [...channelsData.categories.nasional, ...channelsData.categories.berita_dunia];
+    return [
+        ...channelsData.categories.nasional_umum, 
+        ...channelsData.categories.berita_dewasa,
+        ...channelsData.categories.anak_anak
+    ];
 };
 
 // Fungsi UI Remote Control Interaktif
@@ -37,7 +41,7 @@ function createRemotePayload(session) {
 
     const embed = new MessageEmbed()
         .setTitle('📺 AGC SUPREME AFK TV LOUNGE')
-        .setDescription('Channel hiburan & berita real-time untuk menemani waktu santai/AFK Anda di Voice Channel.')
+        .setDescription('Channel hiburan, berita, & anak-anak real-time untuk menemani waktu santai/AFK Anda di Voice Channel.')
         .addField('Stasiun TV Aktif', `**${channel.name}**`, true)
         .addField('Kualitas Stream', `\`${quality}\``, true)
         .addField('Mode Auto-Rotate', isAutoRotate ? '🟢 ON (Ganti otomatis)' : '🔴 OFF', true)
@@ -75,7 +79,7 @@ function createRemotePayload(session) {
     return { embeds: [embed], components: [rowSelect, row1, row2] };
 }
 
-// Fungsi inti untuk memutar video dengan `@dank074/discord-video-stream`
+// Fungsi inti untuk memutar video
 async function playStream(guildId, channelObj, qualitySetting) {
     const session = activeSessions.get(guildId);
     if (!session) return;
@@ -166,7 +170,7 @@ client.on('messageCreate', async (message) => {
             const remoteMessage = await message.channel.send(createRemotePayload(sessionData));
             sessionData.remoteMessage = remoteMessage;
 
-            const collector = remoteMessage.createMessageComponentCollector({ time: 86400000 }); // Aktif 24 Jam
+            const collector = remoteMessage.createMessageComponentCollector({ time: 86400000 });
 
             collector.on('collect', async (interaction) => {
                 const session = activeSessions.get(interaction.guild.id);
