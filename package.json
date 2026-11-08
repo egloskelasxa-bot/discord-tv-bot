@@ -1,7 +1,7 @@
 {
   "name": "discord-supreme-tv-bot",
   "version": "7.0.0",
-  "description": "Advanced Discord Live TV Streamer Bot",
+  "description": "Advanced Discord Live TV Streamer Bot with Interactive Remote for AFK Lounge",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
